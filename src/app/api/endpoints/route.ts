@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create the endpoint and a default monitor in a transaction
-    const endpoint = await db.$transaction(async (tx) => {
+    const endpoint = await db.$transaction(async (tx: any) => {
       const e = await tx.endpoint.create({
         data: {
           projectId,

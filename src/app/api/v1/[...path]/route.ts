@@ -69,7 +69,7 @@ async function handleApiGateway(
   db.aPIKey.update({
     where: { id: apiKey.id },
     data: { lastUsedAt: new Date() },
-  }).catch((err) => console.error('Failed to update API key lastUsedAt:', err))
+  }).catch((err: any) => console.error('Failed to update API key lastUsedAt:', err))
 
   // 3. Rate Limiting Check
   const rateLimitConfig = apiKey.rateLimits[0]
@@ -96,10 +96,10 @@ async function handleApiGateway(
           userAgent,
           errorDetails: `Rate Limit Exceeded. (Type: ${rateLimitConfig.type})`,
         },
-      }).catch((e) => console.error('Log block failed:', e))
+      }).catch((e: any) => console.error('Log block failed:', e))
 
       // Trigger Alert if configured for rate limit exceeded
-      triggerAlert(projectId, null, 'RATE_LIMIT_EXCEEDED', 1, `Rate limit exceeded on key: ${apiKey.name}`).catch((e) => {})
+      triggerAlert(projectId, null, 'RATE_LIMIT_EXCEEDED', 1, `Rate limit exceeded on key: ${apiKey.name}`).catch((e: any) => {})
 
       return new NextResponse(
         JSON.stringify({
@@ -120,11 +120,16 @@ async function handleApiGateway(
     }
   }
 
+  // Normalize path by stripping trailing slash
+  const cleanPath = path.endsWith('/') && path.length > 1 ? path.slice(0, -1) : path
+  
   // 4. Find Endpoint config
   const endpoint = await db.endpoint.findFirst({
     where: {
       projectId,
-      url: path,
+      url: {
+        in: [cleanPath, `/api/v1${cleanPath}`],
+      },
       method,
     },
   })
@@ -272,14 +277,14 @@ async function handleApiGateway(
       userAgent,
       errorDetails: responseStatusCode >= 400 ? 'Client/Server Error Response' : null,
     },
-  }).catch((e) => console.error('Log request failed:', e))
+  }).catch((e: any) => console.error('Log request failed:', e))
 
   // 7. Check if we need to trigger alerts on error rate or latency
   if (responseStatusCode >= 500) {
-    triggerAlert(projectId, endpoint?.id || null, 'API_DOWN', 1, `HTTP ${responseStatusCode} returned on ${method} ${path}`).catch((e) => {})
+    triggerAlert(projectId, endpoint?.id || null, 'API_DOWN', 1, `HTTP ${responseStatusCode} returned on ${method} ${path}`).catch((e: any) => {})
   }
   if (targetLatency > (endpoint?.timeout || 3000)) {
-    triggerAlert(projectId, endpoint?.id || null, 'HIGH_LATENCY', targetLatency, `Latency of ${targetLatency}ms exceeded threshold`).catch((e) => {})
+    triggerAlert(projectId, endpoint?.id || null, 'HIGH_LATENCY', targetLatency, `Latency of ${targetLatency}ms exceeded threshold`).catch((e: any) => {})
   }
 
   // 8. Return response
