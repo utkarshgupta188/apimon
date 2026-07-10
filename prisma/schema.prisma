@@ -1,0 +1,249 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum Environment {
+  PRODUCTION
+  STAGING
+  DEVELOPMENT
+}
+
+enum HttpMethod {
+  GET
+  POST
+  PUT
+  DELETE
+  PATCH
+  OPTIONS
+  HEAD
+}
+
+enum RateLimitType {
+  SLIDING_WINDOW
+  FIXED_WINDOW
+  TOKEN_BUCKET
+}
+
+enum TriggerType {
+  API_DOWN
+  HIGH_LATENCY
+  HIGH_ERROR_RATE
+  RATE_LIMIT_EXCEEDED
+}
+
+enum NotificationMethod {
+  EMAIL
+  SLACK
+  DISCORD
+}
+
+enum ActivityAction {
+  LOGIN
+  PROJECT_CREATE
+  ENDPOINT_ADD
+  API_KEY_GENERATE
+  RATE_LIMIT_UPDATE
+  MEMBER_ADD
+  SETTINGS_CHANGE
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  passwordHash String
+  name         String?
+  image        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  sessions     Session[]
+  memberships  Member[]
+  activityLogs ActivityLog[]
+  projects     Project[]     @relation("ProjectOwner")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  sessionToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id           String        @id @default(uuid())
+  name         String
+  description  String?
+  environment  Environment   @default(DEVELOPMENT)
+  baseUrl      String?
+  ownerId      String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  owner        User          @relation("ProjectOwner", fields: [ownerId], references: [id])
+  teams        Team[]
+  endpoints    Endpoint[]
+  apiKeys      APIKey[]
+  requestLogs  RequestLog[]
+  activityLogs ActivityLog[]
+  alerts       Alert[]
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  projectId String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  members   Member[]
+}
+
+model Member {
+  id        String   @id @default(uuid())
+  teamId    String
+  userId    String
+  role      Role     @default(MEMBER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+}
+
+model Endpoint {
+  id             String       @id @default(uuid())
+  projectId      String
+  name           String
+  url            String
+  method         HttpMethod   @default(GET)
+  description    String?
+  expectedStatus Int          @default(200)
+  timeout        Int          @default(10000) // in milliseconds
+  enabled        Boolean      @default(true)
+  tags           String[]     @default([])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestLogs    RequestLog[]
+  monitors       Monitor[]
+  alerts         Alert[]
+}
+
+model APIKey {
+  id          String       @id @default(uuid())
+  projectId   String
+  userId      String // creator
+  name        String
+  keyPrefix   String // e.g., apim_live_
+  keyHash     String       @unique // Hash of key for security
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  rateLimits  RateLimit[]
+  requestLogs RequestLog[]
+}
+
+model RateLimit {
+  id                String        @id @default(uuid())
+  apiKeyId          String        @unique
+  requestsPerSecond Int?
+  requestsPerMinute Int?
+  requestsPerHour   Int?
+  requestsPerDay    Int?
+  type              RateLimitType @default(SLIDING_WINDOW)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  apiKey            APIKey        @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+}
+
+model RequestLog {
+  id           String     @id @default(uuid())
+  projectId    String
+  apiKeyId     String?
+  endpointId   String?
+  timestamp    DateTime   @default(now())
+  method       HttpMethod
+  statusCode   Int
+  responseTime Int // in ms
+  ipAddress    String?
+  country      String?
+  userAgent    String?
+  errorDetails String?
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  apiKey       APIKey?    @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  endpoint     Endpoint?  @relation(fields: [endpointId], references: [id], onDelete: SetNull)
+
+  @@index([timestamp])
+  @@index([projectId, timestamp])
+  @@index([endpointId, timestamp])
+}
+
+model Monitor {
+  id             String    @id @default(uuid())
+  endpointId     String
+  name           String
+  intervalSecond Int       @default(60)
+  isActive       Boolean   @default(true)
+  lastCheckedAt  DateTime?
+  lastStatusCode Int?
+  lastLatency    Int?
+  uptimePercent  Float     @default(100.0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  endpoint       Endpoint  @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+}
+
+model Alert {
+  id                 String             @id @default(uuid())
+  projectId          String
+  endpointId         String?
+  triggerType        TriggerType
+  threshold          Float // e.g., latency in ms, error rate %
+  durationSecond     Int                @default(60)
+  notificationMethod NotificationMethod
+  recipient          String // email, slack/discord URL
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  project            Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  endpoint           Endpoint?          @relation(fields: [endpointId], references: [id], onDelete: SetNull)
+  notifications      NotificationLog[]
+}
+
+model NotificationLog {
+  id        String   @id @default(uuid())
+  alertId   String
+  timestamp DateTime @default(now())
+  sentTo    String
+  status    String // SUCCESS, FAILED
+  message   String
+  alert     Alert    @relation(fields: [alertId], references: [id], onDelete: Cascade)
+}
+
+model ActivityLog {
+  id        String         @id @default(uuid())
+  projectId String?
+  userId    String
+  action    ActivityAction
+  details   String
+  timestamp DateTime       @default(now())
+  project   Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
