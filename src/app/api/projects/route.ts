@@ -6,14 +6,14 @@ import { z } from 'zod'
 
 const projectCreateSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
   environment: z.enum(['PRODUCTION', 'STAGING', 'DEVELOPMENT']).default('DEVELOPMENT'),
   baseUrl: z.string().url('Must be a valid URL').optional().or(z.literal('')),
 })
 
 const projectUpdateSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').optional(),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
   environment: z.enum(['PRODUCTION', 'STAGING', 'DEVELOPMENT']).optional(),
   baseUrl: z.string().url('Must be a valid URL').optional().or(z.literal('')),
 })

@@ -10,7 +10,7 @@ const endpointSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   url: z.string().startsWith('/', 'URL path must start with a slash (e.g., /users)'),
   method: z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD']).default('GET'),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
   expectedStatus: z.number().int().positive().default(200),
   timeout: z.number().int().positive().default(10000),
   enabled: z.boolean().default(true),
