@@ -52,7 +52,7 @@ export default function LogsPage() {
   
   // Filter lists (for dropdowns)
   const [apiKeys, setApiKeys] = useState<{ id: string; name: string }[]>([])
-  const [endpoints, setEndpoints] = useState<{ id: string; name: string; url: string }[]>([])
+  const [endpoints, setEndpoints] = useState<{ id: string; name: string; url: string; method: string }[]>([])
 
   // Active filters state
   const [search, setSearch] = useState('')

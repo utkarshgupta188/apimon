@@ -136,7 +136,7 @@ export default function DashboardShell({ children }: DashboardShellProps) {
                     setProjectDropdownOpen(false)
                   }}
                   className={`w-full text-left px-2.5 py-2 text-sm rounded-lg flex items-center justify-between cursor-pointer ${
-                    activeProjectId === proj.id
+                    activeProject?.id === proj.id
                       ? 'bg-primary/10 text-primary font-medium'
                       : 'hover:bg-secondary/80 text-foreground'
                   }`}
